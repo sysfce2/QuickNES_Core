@@ -165,8 +165,7 @@ Blip_Synth_::Blip_Synth_( short* p, int w ) :
 }
 
 // TODO: apparently this is defined elsewhere too
-#define pi my_pi
-static double const pi = 3.1415926535897932384626433832795029;
+static double const my_pi = 3.1415926535897932384626433832795029;
 
 static void gen_sinc( float* out, int count, double oversample, double treble, double cutoff )
 {
@@ -181,7 +180,7 @@ static void gen_sinc( float* out, int count, double oversample, double treble, d
 	double const maxh = 4096.0;
 	double const rolloff = pow( 10.0, 1.0 / (maxh * 20.0) * treble / (1.0 - cutoff) );
 	double const pow_a_n = pow( rolloff, maxh - maxh * cutoff );
-	double const to_angle = pi / 2 / maxh / oversample;
+	double const to_angle = my_pi / 2 / maxh / oversample;
 	for ( int i = 0; i < count; i++ )
 	{
 		double angle = ((i - count) * 2 + 1) * to_angle;
@@ -212,7 +211,7 @@ void blip_eq_t::generate( float* out, int count ) const
 	gen_sinc( out, count, blip_res * oversample, treble, cutoff );
 	
 	// apply (half of) hamming window
-	double to_fraction = pi / (count - 1);
+	double to_fraction = my_pi / (count - 1);
 	for ( int i = count; i--; )
 		out [i] *= 0.54 - 0.46 * cos( i * to_fraction );
 }
@@ -263,8 +262,6 @@ void Blip_Synth_::treble_eq( blip_eq_t const& eq )
 	for ( i = 0; i < half_size; i++ )
 		total += fimpulse [blip_res + i];
 	
-	//double const base_unit = 44800.0 - 128 * 18; // allows treble up to +0 dB
-	//double const base_unit = 37888.0; // allows treble to +5 dB
 	double const base_unit = 32768.0; // necessary for blip_unscaled to work
 	double rescale = base_unit / 2 / total;
 	kernel_unit = (long) base_unit;

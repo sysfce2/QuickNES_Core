@@ -6,19 +6,13 @@
 
 int Nes_Core::cpu_read( nes_addr_t addr, nes_time_t time )
 {
-	//LOG_FREQ( "cpu_read", 16, addr >> 12 );
+	int result = cpu::low_mem [addr & 0x7FF];
+	if ( !(addr & 0xE000) )
+		return result;
 	
-	{
-		int result = cpu::low_mem [addr & 0x7FF];
-		if ( !(addr & 0xE000) )
-			return result;
-	}
-	
-	{
-		int result = *cpu::get_code( addr );
-		if ( addr > 0x7FFF )
-			return result;
-	}
+	result = *cpu::get_code( addr );
+	if ( addr > 0x7FFF )
+		return result;
 	
 	time += cpu_time_offset;
 	if ( addr < 0x4000 )
@@ -27,7 +21,7 @@ int Nes_Core::cpu_read( nes_addr_t addr, nes_time_t time )
 	clock_ = time;
 	if ( data_reader_mapped [addr >> page_bits] )
 	{
-		int result = mapper->read( time, addr );
+		result = mapper->read( time, addr );
 		if ( result >= 0 )
 			return result;
 	}
@@ -41,17 +35,11 @@ int Nes_Core::cpu_read( nes_addr_t addr, nes_time_t time )
 	if ( addr < lrom_readable )
 		return *cpu::get_code( addr );
 	
-	#ifndef NDEBUG
-		log_unmapped( addr );
-	#endif
-	
 	return addr >> 8; // simulate open bus
 }
 
 inline int Nes_Core::cpu_read_ppu( nes_addr_t addr, nes_time_t time )
 {
-	//LOG_FREQ( "cpu_read_ppu", 16, addr >> 12 );
-	
 	// Read of status register (0x2002) is heavily optimized since many games
 	// poll it hundreds of times per frame.
 	nes_time_t next = ppu_2002_time;
@@ -81,8 +69,6 @@ void Nes_Core::cpu_write_2007( int data )
 
 void Nes_Core::cpu_write( nes_addr_t addr, int data, nes_time_t time )
 {
-	//LOG_FREQ( "cpu_write", 16, addr >> 12 );
-	
 	if ( !(addr & 0xE000) )
 	{
 		cpu::low_mem [addr & 0x7FF] = data;
@@ -116,21 +102,12 @@ void Nes_Core::cpu_write( nes_addr_t addr, int data, nes_time_t time )
 	}
 	
 	if ( addr > 0x7FFF )
-	{
 		mapper->write( clock_, addr, data );
-		return;
-	}
-	
-	#ifndef NDEBUG
-		log_unmapped( addr, data );
-	#endif
 }
 
-#define NES_CPU_READ_PPU( cpu, addr, time ) \
-	STATIC_CAST(Nes_Core&,*cpu).cpu_read_ppu( addr, time )
+#define NES_CPU_READ_PPU( cpu, addr, time ) STATIC_CAST(Nes_Core&,*cpu).cpu_read_ppu( addr, time )
 
-#define NES_CPU_READ( cpu, addr, time ) \
-	STATIC_CAST(Nes_Core&,*cpu).cpu_read( addr, time )
+#define NES_CPU_READ( cpu, addr, time ) STATIC_CAST(Nes_Core&,*cpu).cpu_read( addr, time )
 
 #define NES_CPU_WRITEX( cpu, addr, data, time ){\
 	STATIC_CAST(Nes_Core&,*cpu).cpu_write( addr, data, time );\

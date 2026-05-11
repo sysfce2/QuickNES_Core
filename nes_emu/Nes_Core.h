@@ -85,7 +85,6 @@ private:
 	nes_time_t emulate_frame_();
 	nes_addr_t read_vector( nes_addr_t );
 	void vector_interrupt( nes_addr_t );
-	static void log_unmapped( nes_addr_t addr, int data = -1 );
 	void cpu_set_irq_time( nes_time_t t ) { cpu::set_irq_time_( t - 1 - cpu_time_offset ); }
 	void cpu_set_end_time( nes_time_t t ) { cpu::set_end_time_( t - 1 - cpu_time_offset ); }
 	nes_time_t cpu_time() const { return clock_ + 1; }
