@@ -1180,7 +1180,13 @@ end:
 		r.status = temp;
 	}
 	
+#if !BLARGG_CPU_CISC
+	// On RISC/register-rich targets the loop kept clock_count in a local
+	// (see top of run()) to avoid touching the member field in the hot
+	// path. Write it back to the member on exit. On CISC the loop updated
+	// the member directly, so this would be a self-assignment.
 	this->clock_count = clock_count;
+#endif
 	r.pc = pc;
 	r.sp = GET_SP();
 	r.a = a;

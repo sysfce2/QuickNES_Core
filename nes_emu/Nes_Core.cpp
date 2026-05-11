@@ -28,7 +28,6 @@ bool const single_instruction_mode = false; // for debugging irq/nmi timing issu
 const int unmapped_fill = Nes_Cpu::page_wrap_opcode;
 
 unsigned const low_ram_size = 0x800;
-unsigned const low_ram_end  = 0x2000;
 unsigned const sram_end     = 0x8000;
 
 Nes_Core::Nes_Core() : ppu( this )
