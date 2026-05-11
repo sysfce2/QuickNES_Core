@@ -113,13 +113,39 @@ public:
 	void run_until( nes_time_t end_time )
 	{
 		bool bg_enabled = ppu_enabled();
-		
+
+		// The MMC3 IRQ counter is clocked by rising edges on PPU A12.
+		// During normal rendering, A12 transitions once per scanline IFF
+		// the background and sprite pattern tables are in different
+		// halves of CHR (different A12 values, controlled by PPUCTRL
+		// bits 3-4). If both BG and sprites use the same pattern table
+		// half, A12 doesn't transition during visible rendering and the
+		// IRQ counter doesn't clock.
+		//
+		// Mega Man 3's pause menu (issue #76) configures both BG and
+		// sprites at $1000 expecting no IRQ counter clocking during
+		// visible scanlines -- the game relies on the IRQ NOT firing so
+		// the HUD's nametable scroll-split stays put. Without this check
+		// QuickNES over-clocks the counter, fires extra IRQs each of
+		// which reapplies the scroll, and the same HUD row renders
+		// multiple times stacked.
+		//
+		// 8x16 sprite mode (PPUCTRL bit 5) uses per-tile pattern table
+		// selection so A12 may still transition regardless of bits 3-4;
+		// in that mode we conservatively keep the per-scanline clocking.
+		// Per-tile sprite-pattern detection would need OAM inspection
+		// which isn't worth it here.
+		int ctrl                  = emu().ppu.w2000;
+		bool sprite_8x16          = (ctrl & 0x20) != 0;
+		bool same_pattern_table   = ((ctrl & 0x18) == 0x00) || ((ctrl & 0x18) == 0x18);
+		bool clock_per_scanline   = bg_enabled && (!same_pattern_table || sprite_8x16);
+
 		if (next_time < 0) next_time = 0;
 
 		end_time *= ppu_overclock;
 		while ( next_time < end_time && next_time <= last_scanline )
 		{
-			if ( bg_enabled )
+			if ( clock_per_scanline )
 				clock_counter();
 			next_time += Nes_Ppu::scanline_len;
 		}
