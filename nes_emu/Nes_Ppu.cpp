@@ -44,7 +44,6 @@ ppu_time_t const earliest_sprite_hit = 21 * scanline_len + 339; // needs to be 2
 
 nes_time_t const vbl_end_time = 2272;
 ppu_time_t const max_frame_length = 262 * scanline_len;
-//ppu_time_t const max_frame_length = 320 * scanline_len; // longer frame for testing movie resync
 nes_time_t const earliest_vbl_end_time = max_frame_length / ppu_overclock - 10;
 
 // Scanline rendering
@@ -195,13 +194,11 @@ void Nes_Ppu::run_sprite_max_( nes_time_t cpu_time )
 		if ( t > 0 )
 			sprite_max_set_time = t / 3 + sprite_max_cpu_offset;
 		next_sprite_max_run = sprite_max_set_time;
-		//dprintf( "sprite_max_set_time: %d\n", sprite_max_set_time );
 	}
 	
 	if ( cpu_time > sprite_max_set_time )
 	{
 		r2002 |= 0x20;
-		//dprintf( "Sprite max flag set: %d\n", sprite_max_set_time );
 		next_sprite_max_run = indefinite_time;
 	}
 }
@@ -247,7 +244,6 @@ inline int Nes_Ppu_Impl::first_opaque_sprite_line()
 void Nes_Ppu::update_sprite_hit( nes_time_t cpu_time )
 {
 	ppu_time_t earliest = earliest_sprite_hit + spr_ram [0] * scanline_len + spr_ram [3];
-	//ppu_time_t latest = earliest + sprite_height() * scanline_len;
 	
 	earliest += first_opaque_sprite_line() * scanline_len;
 	
@@ -293,9 +289,6 @@ void Nes_Ppu::update_sprite_hit( nes_time_t cpu_time )
 			next_sprite_hit_check = nes_time( hit_time );
 			return;
 		}
-		
-		//dprintf( "Sprite hit x: %d, y: %d, scanline_count: %d\n",
-		//      sprite_hit_found % 341, sprite_hit_found / 341, scanline_count );
 		
 		r2002 |= 0x40;
 	}
@@ -348,18 +341,14 @@ int Nes_Ppu::read_2002( nes_time_t time )
 			// special vbl behavior when read is just before or at clock when it's set
 			if ( extra_clocks != 1 )
 			{
-				if ( time == frame_length() )
-				{
+				if ( time == frame_length() ) /* Suppressed NMI */
 					nmi_time_ = indefinite_time;
-					//dprintf( "Suppressed NMI\n" );
-				}
 			}
-			else if ( time == frame_length() - 1 )
+			else if ( time == frame_length() - 1 ) /* Suppressed NMI */
 			{
 				r2002 &= ~0x80;
 				frame_ended = true;
 				nmi_time_ = indefinite_time;
-				//dprintf( "Suppressed NMI\n" );
 			}
 		}
 	}
@@ -375,7 +364,6 @@ int Nes_Ppu::read_2002( nes_time_t time )
 
 void Nes_Ppu::dma_sprites( nes_time_t time, void const* in )
 {
-	//dprintf( "%d sprites written\n", time );
 	render_until( time );
 	
 	invalidate_sprite_max( time );
@@ -522,7 +510,6 @@ void Nes_Ppu::write( nes_time_t time, unsigned addr, int data )
 			break;
 		
 		case 4:
-			//dprintf( "%d sprites written\n", time );
 			if ( time > first_scanline_time / ppu_overclock )
 			{
 				render_until( time );
@@ -612,7 +599,6 @@ nes_time_t Nes_Ppu::begin_frame( ppu_time_t timestamp )
 	
 	base::begin_frame();
 	
-	//dprintf( "cpu_timestamp: %d\n", cpu_timestamp );
 	return cpu_timestamp;
 }
 

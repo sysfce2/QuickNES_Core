@@ -258,9 +258,6 @@ void Nes_Ppu_Rendering::draw_sprites_( int begin, int end )
 			
 			int skip = -neg_skip;
 			
-			//dprintf( "begin: %d, end: %d, top: %d, skip: %d, visible: %d\n",
-			//      begin, end, top_minus_one + 1, skip, visible );
-			
 			#define CLIPPED 1
 			#include "Nes_Ppu_Sprites.h"
 		}
@@ -404,7 +401,6 @@ void Nes_Ppu_Rendering::draw_scanlines( int start, int count,
 		
 		if ( draw_mode & bg_mask )
 		{
-			//dprintf( "bg  %3d-%3d\n", start, start + count - 1 );
 			draw_background_( count );
 			
 			if ( clip_mode == bg_mask )
@@ -419,8 +415,6 @@ void Nes_Ppu_Rendering::draw_scanlines( int start, int count,
 			// when clipping just sprites, save left strip then restore after drawing them
 			if ( clip_mode == obj_mask )
 				save_left( count );
-			
-			//dprintf( "obj %3d-%3d\n", start, start + count - 1 );
 			
 			draw_sprites_( start, start + count );
 			

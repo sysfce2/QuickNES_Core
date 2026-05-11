@@ -66,19 +66,10 @@ public:
 			counter_just_clocked--;
 		
 		if ( !irq_ctr-- )
-		{
 			irq_ctr = irq_latch;
-			//if ( !irq_latch )
-				//dprintf( "MMC3 IRQ counter reloaded with 0\n" );
-		}
 		
-		//dprintf( "%6d MMC3 IRQ clocked\n", time / ppu_overclock );
 		if ( irq_ctr == 0 )
-		{
-			//if ( irq_enabled && !irq_flag )
-				//dprintf( "%6d MMC3 IRQ triggered: %f\n", time / ppu_overclock, time / scanline_len.0 - 20 );
 			irq_flag = irq_enabled;
-		}
 	}
 	
 	
@@ -219,7 +210,6 @@ public:
 		
 		case 0xA001:
 			sram_mode = data;
-			//dprintf( "%02X->%04X\n", data, addr );
 			
 			// Startropics 1 & 2 use MMC6 and always enable low 512 bytes of SRAM
 			if ( (data & 0x3F) == 0x30 )

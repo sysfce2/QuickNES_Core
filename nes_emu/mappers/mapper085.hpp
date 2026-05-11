@@ -97,7 +97,6 @@ public:
 	
 	void write_chr_bank( int bank, int data )
 	{
-		//dprintf( "change chr bank %d\n", bank );
 		chr_banks [bank] = data;
 		set_chr_bank( bank * 0x400, bank_1k, data );
 	}
@@ -106,7 +105,6 @@ public:
 	{
 		mirroring = data;
 		
-		//dprintf( "Change mirroring %d\n", data );
 		enable_sram( data & 128, data & 64 );
 
 		if ( data & 2 )
@@ -141,7 +139,6 @@ public:
 		{
 			while ( next_time < end_time )
 			{
-				//dprintf( "%d timer expired\n", next_time );
 				irq_pending = true;
 				reset_timer( next_time );
 			}
@@ -176,7 +173,6 @@ public:
 		{
 			// IRQ
 			run_until( time );
-			//dprintf( "%d VRC6 IRQ [%d] = %02X\n", time, addr & 3, data );
 			switch ( addr & 0xf010 )
 			{
 				case 0xe010:

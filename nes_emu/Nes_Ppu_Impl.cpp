@@ -38,13 +38,13 @@ Nes_Ppu_Impl::Nes_Ppu_Impl()
 	mmc24_latched[0] = 0;
 	mmc24_latched[1] = 0;
 
-	#if !defined(NDEBUG) && !defined(PSP) && !defined(PS2)
-		// verify that unaligned accesses work
-		static unsigned char b  [19] = { 0 };
-		static unsigned char b2 [19] = { 1,2,3,4,0,5,6,7,8,0,9,0,1,2,0,3,4,5,6 };
-		for ( int i = 0; i < 19; i += 5 )
-			*(volatile uint32_t*) &b [i] = *(volatile uint32_t*) &b2 [i];
-	#endif
+#if !defined(NDEBUG) && !defined(PSP) && !defined(PS2)
+	// verify that unaligned accesses work
+	static unsigned char b  [19] = { 0 };
+	static unsigned char b2 [19] = { 1,2,3,4,0,5,6,7,8,0,9,0,1,2,0,3,4,5,6 };
+	for ( int i = 0; i < 19; i += 5 )
+		*(volatile uint32_t*) &b [i] = *(volatile uint32_t*) &b2 [i];
+#endif
 }
 
 Nes_Ppu_Impl::~Nes_Ppu_Impl()
@@ -128,16 +128,12 @@ void Nes_Ppu_Impl::set_chr_bank_ex( int addr, int size, long data )
 	mmc24_enabled = true;
 
 	//check( !chr_is_writable || addr == data ); // to do: is CHR RAM ever bank-switched?
-	//dprintf( "Tried to set CHR RAM bank at %04X to CHR+%04X\n", addr, data );
 	
 	if ( data + size > chr_size )
 		data %= chr_size;
 	
 	int count = (unsigned) size / chr_page_size;
-	//assert( chr_page_size * count == size );
-	//assert( addr + size <= chr_addr_size );
-	
-	int page = (unsigned) addr / chr_page_size;
+	int page  = (unsigned) addr / chr_page_size;
 	while ( count-- )
 	{
 		chr_pages_ex [page] = data - page * chr_page_size;
@@ -472,14 +468,10 @@ long Nes_Ppu_Impl::recalc_sprite_max( int scanline )
 				while ( i < 0x100 )
 				{
 					int relative = scanline - spr_ram [i + offset];
-					//dprintf( "Checking sprite %d [%d]\n", i / 4, offset );
 					i += 4;
 					offset = (offset + 1) & 3;
 					if ( (unsigned) relative < (unsigned) height )
-					{
-						//dprintf( "sprite max on scanline %d\n", scanline );
 						return scanline * scanline_len + (unsigned) i / 2;
-					}
 				}
 				break;
 			}

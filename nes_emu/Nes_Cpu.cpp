@@ -813,7 +813,6 @@ imm##op:                                \
 		if ( !((data ^ status) & st_i) )
 			goto loop; // I flag didn't change
 	i_flag_changed:
-		//dprintf( "%6d %s\n", time(), (status & st_i ? "SEI" : "CLI") );
 		this->r.status = status; // update externally-visible I flag
 		// update clock_limit based on modified I flag
 		clock_limit = end_time_;
@@ -889,7 +888,6 @@ imm##op:                                \
 			goto loop;
 		status &= ~st_i;
 	handle_cli:
-		//dprintf( "%6d CLI\n", time() );
 		this->r.status = status; // update externally-visible I flag
 		if ( clock_count < end_time_ )
 		{
@@ -909,7 +907,6 @@ imm##op:                                \
 			goto loop;
 		status |= st_i;
 	handle_sei:
-		//dprintf( "%6d SEI\n", time() );
 		this->r.status = status; // update externally-visible I flag
 		clock_limit = end_time_;
 		if ( clock_count < irq_time_ )

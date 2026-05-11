@@ -106,7 +106,6 @@ public:
 		{
 			while ( next_time < end_time )
 			{
-				//dprintf( "%d timer expired\n", next_time );
 				irq_pending = true;
 				reset_timer( next_time );
 			}
@@ -176,7 +175,6 @@ void write_irq( nes_time_t time, nes_addr_t addr, int data )
 {
 	// IRQ
 	run_until( time );
-	//dprintf( "%d VRC6 IRQ [%d] = %02X\n", time, addr & 3, data );
 	switch ( addr & 3 )
 	{
 	case 0:
@@ -210,8 +208,7 @@ void write_bank( nes_addr_t addr, int data )
 	case 0xb003: {
 		mirroring = data;
 		
-		//dprintf( "Change mirroring %d\n", data );
-//      emu()->enable_sram( data & 0x80 ); // to do: needed?
+		//      emu()->enable_sram( data & 0x80 ); // to do: needed?
 		int page = data >> 5 & 1;
 		if ( data & 8 )
 			mirror_single( ((data >> 2) ^ page) & 1 );
@@ -231,7 +228,6 @@ void write_bank( nes_addr_t addr, int data )
 		int bank = (addr >> 11 & 4) | (addr & 3);
 		if ( addr >= 0xd000 )
 		{
-			//dprintf( "change chr bank %d\n", bank );
 			chr_banks [bank] = data;
 			set_chr_bank( bank * 0x400, bank_1k, data );
 		}
