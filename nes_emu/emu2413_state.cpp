@@ -65,38 +65,6 @@ void OPLL_deserialize(OPLL * opll, const OPLL_STATE* state)
 	}
 }
 
-static bool IsLittleEndian()
-{
-#ifdef MSB_FIRST
-	return false;
-#else
-	return true;
-#endif
-}
-
-void OPLL_state_byteswap(OPLL_STATE *state)
-{
-	int i;
-	if (IsLittleEndian()) return;
-
-	BYTESWAP(state->pm_phase);
-	BYTESWAP(state->am_phase);
-
-	for (i = 0; i < 12; i++)
-	{
-		OPLL_SLOT_STATE *slotState = &(state->slot[i]);
-		BYTESWAP(slotState->feedback);
-		BYTESWAP(slotState->output[0]);
-		BYTESWAP(slotState->output[1]);
-		BYTESWAP(slotState->phase);
-		BYTESWAP(slotState->pgout);
-		BYTESWAP(slotState->eg_mode);
-		BYTESWAP(slotState->eg_phase);
-		BYTESWAP(slotState->eg_dphase);
-		BYTESWAP(slotState->egout);
-	}
-}
-
 #ifdef __cplusplus
 }
 #endif

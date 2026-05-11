@@ -132,6 +132,30 @@ void Nes_Vrc7::end_frame( nes_time_t time )
 	last_time -= time;
 }
 
+#ifdef MSB_FIRST
+static void OPLL_state_byteswap(OPLL_STATE *state)
+{
+	int i;
+	BYTESWAP(state->pm_phase);
+	BYTESWAP(state->am_phase);
+
+	for (i = 0; i < 12; i++)
+	{
+		OPLL_SLOT_STATE *slotState = &(state->slot[i]);
+		BYTESWAP(slotState->feedback);
+		BYTESWAP(slotState->output[0]);
+		BYTESWAP(slotState->output[1]);
+		BYTESWAP(slotState->phase);
+		BYTESWAP(slotState->pgout);
+		BYTESWAP(slotState->eg_mode);
+		BYTESWAP(slotState->eg_phase);
+		BYTESWAP(slotState->eg_dphase);
+		BYTESWAP(slotState->egout);
+	}
+}
+#endif
+
+
 void Nes_Vrc7::save_snapshot( vrc7_snapshot_t* out )
 {
 	out->latch = ( ( OPLL * ) opll )->adr;
@@ -149,7 +173,9 @@ void Nes_Vrc7::save_snapshot( vrc7_snapshot_t* out )
 	BYTESWAP(out->internal_opl_state_size);
 #endif
 	OPLL_serialize((OPLL*)opll, &(out->internal_opl_state));
+#ifdef MSB_FIRST
 	OPLL_state_byteswap(&(out->internal_opl_state));
+#endif
 }
 
 void Nes_Vrc7::load_snapshot( vrc7_snapshot_t const& in, int dataSize )
@@ -190,7 +216,9 @@ void Nes_Vrc7::load_snapshot( vrc7_snapshot_t const& in, int dataSize )
 	if (state_size == sizeof(OPLL_STATE))
 	{
 		OPLL_STATE local_state = in.internal_opl_state;
+#ifdef MSB_FIRST
 		OPLL_state_byteswap(&local_state);
+#endif
 		OPLL_deserialize((OPLL*)opll, &local_state);
 	}
 	update_last_amp();

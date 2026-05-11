@@ -25,10 +25,9 @@ extern "C"
 {
 #endif
 
-int OPLL_serialize_size();
+int OPLL_serialize_size(void);
 void OPLL_serialize(const OPLL * opll, OPLL_STATE* state);
 void OPLL_deserialize(OPLL * opll, const OPLL_STATE* state);
-void OPLL_state_byteswap(OPLL_STATE *state);
 
 #ifdef __cplusplus
 }
