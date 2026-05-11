@@ -229,62 +229,70 @@ Nes_Mapper* Nes_Mapper::create( Nes_Cart const* cart, Nes_Core* emu )
   // Storage for the mapper, NULL by default	
   Nes_Mapper* mapper = NULL;
 
-  // Now checking if the detected mapper code is supported
-  if (mapperCode ==   0) mapper = new Mapper000();
-  if (mapperCode ==   1) mapper = new Mapper001();
-  if (mapperCode ==   2) mapper = new Mapper002();
-  if (mapperCode ==   3) mapper = new Mapper003();
-  if (mapperCode ==   4) mapper = new Mapper004();
-  if (mapperCode ==   5) mapper = new Mapper005();
-  if (mapperCode ==   7) mapper = new Mapper007();
-  if (mapperCode ==   9) mapper = new Mapper009();
-  if (mapperCode ==  10) mapper = new Mapper010();
-  if (mapperCode ==  11) mapper = new Mapper011();
-  if (mapperCode ==  15) mapper = new Mapper015();
-  if (mapperCode ==  19) mapper = new Mapper019();
-  if (mapperCode ==  21) mapper = new Mapper021();
-  if (mapperCode ==  22) mapper = new Mapper022();
-  if (mapperCode ==  23) mapper = new Mapper023();
-  if (mapperCode ==  24) mapper = new Mapper024();
-  if (mapperCode ==  25) mapper = new Mapper025();
-  if (mapperCode ==  26) mapper = new Mapper026();
-  if (mapperCode ==  30) mapper = new Mapper030();
-  if (mapperCode ==  32) mapper = new Mapper032();
-  if (mapperCode ==  33) mapper = new Mapper033();
-  if (mapperCode ==  34) mapper = new Mapper034();
-  if (mapperCode ==  60) mapper = new Mapper060();
-  if (mapperCode ==  66) mapper = new Mapper066();
-  if (mapperCode ==  69) mapper = new Mapper069();
-  if (mapperCode ==  70) mapper = new Mapper070();
-  if (mapperCode ==  71) mapper = new Mapper071();
-  if (mapperCode ==  73) mapper = new Mapper073();
-  if (mapperCode ==  75) mapper = new Mapper075();
-  if (mapperCode ==  78) mapper = new Mapper078();
-  if (mapperCode ==  79) mapper = new Mapper079();
-  if (mapperCode ==  85) mapper = new Mapper085();
-  if (mapperCode ==  86) mapper = new Mapper086();
-  if (mapperCode ==  87) mapper = new Mapper087();
-  if (mapperCode ==  88) mapper = new Mapper088();
-  if (mapperCode ==  89) mapper = new Mapper089();
-  if (mapperCode ==  93) mapper = new Mapper093();
-  if (mapperCode ==  94) mapper = new Mapper094();
-  if (mapperCode ==  97) mapper = new Mapper097();
-  if (mapperCode == 113) mapper = new Mapper113();
-  if (mapperCode == 140) mapper = new Mapper140();
-  if (mapperCode == 152) mapper = new Mapper152();
-  if (mapperCode == 154) mapper = new Mapper154();
-  if (mapperCode == 156) mapper = new Mapper156();
-  if (mapperCode == 180) mapper = new Mapper180();
-  if (mapperCode == 184) mapper = new Mapper184();
-  if (mapperCode == 190) mapper = new Mapper190();
-  if (mapperCode == 193) mapper = new Mapper193();
-  if (mapperCode == 206) mapper = new Mapper206();
-  if (mapperCode == 207) mapper = new Mapper207();
-  if (mapperCode == 232) mapper = new Mapper232();
-  if (mapperCode == 240) mapper = new Mapper240();
-  if (mapperCode == 241) mapper = new Mapper241();
-  if (mapperCode == 244) mapper = new Mapper244();
-  if (mapperCode == 246) mapper = new Mapper246();
+  // Now checking if the detected mapper code is supported. A switch
+  // is faster than the old if-chain (which paid for every comparison
+  // unconditionally on every cart load) and guards against the silent
+  // footgun where two entries for the same mapperCode would have both
+  // executed -- the second would have leaked the first.
+  switch ( mapperCode )
+  {
+    case   0: mapper = new Mapper000(); break;
+    case   1: mapper = new Mapper001(); break;
+    case   2: mapper = new Mapper002(); break;
+    case   3: mapper = new Mapper003(); break;
+    case   4: mapper = new Mapper004(); break;
+    case   5: mapper = new Mapper005(); break;
+    case   7: mapper = new Mapper007(); break;
+    case   9: mapper = new Mapper009(); break;
+    case  10: mapper = new Mapper010(); break;
+    case  11: mapper = new Mapper011(); break;
+    case  15: mapper = new Mapper015(); break;
+    case  19: mapper = new Mapper019(); break;
+    case  21: mapper = new Mapper021(); break;
+    case  22: mapper = new Mapper022(); break;
+    case  23: mapper = new Mapper023(); break;
+    case  24: mapper = new Mapper024(); break;
+    case  25: mapper = new Mapper025(); break;
+    case  26: mapper = new Mapper026(); break;
+    case  30: mapper = new Mapper030(); break;
+    case  32: mapper = new Mapper032(); break;
+    case  33: mapper = new Mapper033(); break;
+    case  34: mapper = new Mapper034(); break;
+    case  60: mapper = new Mapper060(); break;
+    case  66: mapper = new Mapper066(); break;
+    case  69: mapper = new Mapper069(); break;
+    case  70: mapper = new Mapper070(); break;
+    case  71: mapper = new Mapper071(); break;
+    case  73: mapper = new Mapper073(); break;
+    case  75: mapper = new Mapper075(); break;
+    case  78: mapper = new Mapper078(); break;
+    case  79: mapper = new Mapper079(); break;
+    case  85: mapper = new Mapper085(); break;
+    case  86: mapper = new Mapper086(); break;
+    case  87: mapper = new Mapper087(); break;
+    case  88: mapper = new Mapper088(); break;
+    case  89: mapper = new Mapper089(); break;
+    case  93: mapper = new Mapper093(); break;
+    case  94: mapper = new Mapper094(); break;
+    case  97: mapper = new Mapper097(); break;
+    case 113: mapper = new Mapper113(); break;
+    case 140: mapper = new Mapper140(); break;
+    case 152: mapper = new Mapper152(); break;
+    case 154: mapper = new Mapper154(); break;
+    case 156: mapper = new Mapper156(); break;
+    case 180: mapper = new Mapper180(); break;
+    case 184: mapper = new Mapper184(); break;
+    case 190: mapper = new Mapper190(); break;
+    case 193: mapper = new Mapper193(); break;
+    case 206: mapper = new Mapper206(); break;
+    case 207: mapper = new Mapper207(); break;
+    case 232: mapper = new Mapper232(); break;
+    case 240: mapper = new Mapper240(); break;
+    case 241: mapper = new Mapper241(); break;
+    case 244: mapper = new Mapper244(); break;
+    case 246: mapper = new Mapper246(); break;
+    default: break;
+  }
 
   // If no mapper was found, return null (error) now 
   if (mapper == NULL)

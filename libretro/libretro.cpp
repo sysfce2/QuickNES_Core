@@ -35,6 +35,10 @@ static inline float nes_par(unsigned width, unsigned height)
 
 static Nes_Emu *emu;
 
+// Cached result of retro_serialize_size; populated lazily on first call and
+// invalidated on every retro_load_game / retro_unload_game.
+static size_t cached_state_size = 0;
+
 static retro_video_refresh_t video_cb;
 static retro_audio_sample_t audio_cb;
 static retro_audio_sample_batch_t audio_batch_cb;
@@ -60,8 +64,6 @@ Nes_Effects_Buffer effects_buffer;
 Silent_Buffer silent_buffer;
 Multi_Buffer *current_buffer = NULL;
 bool use_silent_buffer = false;
-
-bool is_fast_savestate();
 
 /* ========================================
  * Palette additions START
@@ -1236,14 +1238,30 @@ void retro_run(void)
 	   static uint16_t video_buffer[Nes_Emu::image_width * Nes_Emu::image_height];
 	   static uint16_t retro_palette[256];
 
-	   for (unsigned i = 0; i < 256; i++)
+	   // The 256-entry retro_palette only needs to be rebuilt when either
+	   // (a) the user picked a different palette (changes current_nes_colors,
+	   // which we track via palette_index), or (b) the game wrote to PPU
+	   // palette RAM (changes frame.palette[]). Most frames neither happens,
+	   // so cache and compare to skip ~256 RGB->RGB565 conversions per frame.
+	   static short last_frame_palette[Nes_Emu::max_palette_size];
+	   static int last_retro_palette_index = -1;
+	   static bool retro_palette_initialized = false;
+	   if ( !retro_palette_initialized
+	        || palette_index != last_retro_palette_index
+	        || memcmp(last_frame_palette, frame.palette, sizeof(last_frame_palette)) != 0 )
 	   {
-		   const Nes_Emu::rgb_t& rgb = current_nes_colors[frame.palette[i]];
+		   for (unsigned i = 0; i < 256; i++)
+		   {
+			   const Nes_Emu::rgb_t& rgb = current_nes_colors[frame.palette[i]];
 #if defined(ABGR1555)
-         retro_palette[i] = ((rgb.blue & 0xf8) << 7) | ((rgb.green & 0xf8) << 2) | ((rgb.red & 0xf8) >> 3);
+	         retro_palette[i] = ((rgb.blue & 0xf8) << 7) | ((rgb.green & 0xf8) << 2) | ((rgb.red & 0xf8) >> 3);
 #else
-         retro_palette[i] = ((rgb.red & 0xf8) << 8) | ((rgb.green & 0xfc) << 3) | ((rgb.blue & 0xf8) >> 3);
+	         retro_palette[i] = ((rgb.red & 0xf8) << 8) | ((rgb.green & 0xfc) << 3) | ((rgb.blue & 0xf8) >> 3);
 #endif
+		   }
+		   memcpy(last_frame_palette, frame.palette, sizeof(last_frame_palette));
+		   last_retro_palette_index = palette_index;
+		   retro_palette_initialized = true;
 	   }
 
 	   for (int y = 0; y < Nes_Emu::image_height; y++)
@@ -1279,7 +1297,13 @@ void retro_run(void)
 			audio_batch_cb(out_samples, read_samples);
 	   }
 	   else
-			audio_batch_cb(samples, read_samples >> 1);
+	   {
+			// Effects_Buffer is already producing interleaved stereo pairs:
+			// read_samples returned a count expressed in mono samples, so the
+			// stereo frame count delivered to audio_batch_cb is half that.
+			long stereo_frames = read_samples >> 1;
+			audio_batch_cb(samples, stereo_frames);
+	   }
    }
    else
    {
@@ -1352,6 +1376,18 @@ bool retro_load_game(const struct retro_game_info *info)
    if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt))
       return false;
 
+   // Guard against a frontend that calls retro_load_game without a matching
+   // retro_unload_game. The spec disallows it but well-behaved cores are
+   // defensive about it anyway, since leaking the prior emu would also
+   // leave the global Multi_Buffer wired to a destroyed audio chain.
+   if (emu)
+   {
+      emu->close();
+      delete emu;
+      emu = NULL;
+   }
+   cached_state_size = 0;
+
    emu = new Nes_Emu;
    check_variables();
 
@@ -1398,6 +1434,7 @@ void retro_unload_game(void)
       emu->close();
    delete emu;
    emu = 0;
+   cached_state_size = 0;
 }
 
 unsigned retro_get_region(void)
@@ -1412,48 +1449,42 @@ bool retro_load_game_special(unsigned, const struct retro_game_info *, size_t)
 
 size_t retro_serialize_size(void)
 {
+   // The serialized size is determined entirely by the loaded cart (mapper
+   // state size varies per mapper) and is stable for the life of one
+   // retro_load_game. Caching avoids paying the full save_state cost just
+   // to measure -- some frontends call this every frame during runahead.
+   if (cached_state_size != 0)
+      return cached_state_size;
+
    Mem_Writer writer;
    if (emu->save_state(writer))
       return 0;
 
-   return writer.size();
-}
-
-bool is_fast_savestate()
-{
-	int value;
-	bool okay = environ_cb(RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE, &value);
-	if (okay)
-	{
-		if (value & 4)
-		{
-			return true;
-		}
-	}
-	return false;
+   cached_state_size = writer.size();
+   return cached_state_size;
 }
 
 bool retro_serialize(void *data, size_t size)
 {
-   bool isFastSavestate = is_fast_savestate();
    Mem_Writer writer(data, size);
    bool okay = !emu->save_state(writer);
-   if (isFastSavestate)
-   {
-      emu->SaveAudioBufferState();
-   }
+   // Always snapshot audio buffer state. The snapshot is stored in
+   // process-local memory inside each Blip_Buffer (and friends), not in
+   // `data`, so within-session save->load round-trips now preserve audio
+   // exactly. Cross-session loads (close emulator, reopen, load file)
+   // still fall back to the fade-in path because the snapshot doesn't
+   // persist in the user buffer -- Restore is gated by an extra_valid
+   // sentinel that is false on a freshly constructed Blip_Buffer, so it
+   // becomes a no-op and the existing clear_sound_buf() fade kicks in.
+   emu->SaveAudioBufferState();
    return okay;
 }
 
 bool retro_unserialize(const void *data, size_t size)
 {
-   bool isFastSavestate = is_fast_savestate();
    Mem_File_Reader reader(data, size);
    bool okay = !emu->load_state(reader);
-   if (isFastSavestate)
-   {
-      emu->RestoreAudioBufferState();
-   }
+   emu->RestoreAudioBufferState();
    return okay;
 }
 

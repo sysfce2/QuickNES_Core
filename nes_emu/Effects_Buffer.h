@@ -68,7 +68,19 @@ private:
 	blip_sample_t* echo_buf;
 	int reverb_pos;
 	int echo_pos;
-	
+
+	// Snapshot buffers for SaveAudioBufferState / RestoreAudioBufferState.
+	// Allocated alongside echo_buf / reverb_buf in set_sample_rate, same
+	// sizes. Effects_Buffer is the only Multi_Buffer subclass with internal
+	// delay lines beyond the Blip_Buffers themselves, so it needs to
+	// snapshot them or runahead audio with effects enabled corrupts after
+	// every restore.
+	blip_sample_t* extra_echo_buf;
+	blip_sample_t* extra_reverb_buf;
+	int extra_echo_pos;
+	int extra_reverb_pos;
+	bool extra_valid;
+
 	struct {
 		fixed_t pan_1_levels [2];
 		fixed_t pan_2_levels [2];
@@ -84,6 +96,9 @@ private:
 	void mix_stereo( blip_sample_t*, long );
 	void mix_enhanced( blip_sample_t*, long );
 	void mix_mono_enhanced( blip_sample_t*, long );
+public:
+	virtual void SaveAudioBufferState();
+	virtual void RestoreAudioBufferState();
 };
 
 	inline Effects_Buffer::channel_t Effects_Buffer::channel( int i ) {

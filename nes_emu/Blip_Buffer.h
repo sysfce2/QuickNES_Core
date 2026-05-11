@@ -108,11 +108,23 @@ private:
 	friend class Blip_Reader;
 
 private:
-	//extra information necessary to load state to an exact sample
-	buf_t_ extra_buffer[32];
+	//extra information necessary to load state to an exact sample.
+	// Size rationale: between Save and Restore the worst case has the
+	// entire previous frame's audio still in flight plus the
+	// impulse-response tail (buffer_extra). At 44.1 kHz/60 fps that's
+	// ~735 + 18 longs. 1024 leaves comfortable headroom and is still
+	// only ~8 KB per Blip_Buffer.
+	enum { extra_buffer_size = 1024 };
+	buf_t_ extra_buffer[extra_buffer_size];
 	int extra_length;
 	long extra_reader_accum;
 	blip_resampled_time_t extra_offset;
+	// True iff SaveAudioBufferState has been called since construction.
+	// RestoreAudioBufferState is a no-op until then so that a fresh
+	// Blip_Buffer (e.g. after retro_load_game) isn't silently zeroed by
+	// a frontend that calls retro_unserialize without a matching
+	// retro_serialize earlier in the same session.
+	bool extra_valid;
 public:
 	void SaveAudioBufferState();
 	void RestoreAudioBufferState();

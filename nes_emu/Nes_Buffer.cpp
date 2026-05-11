@@ -177,6 +177,7 @@ Nes_Nonlinearizer::Nes_Nonlinearizer()
 	}
 	extra_accum = 0;
 	extra_prev = 0;
+	extra_valid = false;
 }
 
 Nes_Apu* Nes_Nonlinearizer::enable( bool b, Blip_Buffer* buf )
@@ -231,10 +232,13 @@ void Nes_Nonlinearizer::SaveAudioBufferState()
 {
 	extra_accum = accum;
 	extra_prev = prev;
+	extra_valid = true;
 }
 
 void Nes_Nonlinearizer::RestoreAudioBufferState()
 {
+	if ( !extra_valid )
+		return;
 	accum = extra_accum;
 	prev = extra_prev;
 }

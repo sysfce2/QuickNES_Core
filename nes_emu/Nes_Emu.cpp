@@ -222,26 +222,31 @@ void Nes_Emu::load_state( Nes_State const& in )
 	load_state( STATIC_CAST(Nes_State_ const&,in) );
 }
 
+// Scratch state buffers used by the file save/load paths. Nes_State is
+// ~21 KB; this used to be heap-allocated on every save and every load,
+// which is wasteful and -- for runahead which serializes every frame --
+// shows up on the profiler. Libretro instantiates one Nes_Emu per
+// process and is single-threaded, so a pair of file-scope buffers is
+// safe. They are populated fresh inside save_state()/load_state() before
+// each use, so stale contents are never observed.
+static Nes_State s_save_state_scratch;
+static Nes_State s_load_state_scratch;
+
 const char * Nes_Emu::load_state( Auto_File_Reader in )
 {
-	Nes_State* state = new Nes_State;
+	Nes_State* state = &s_load_state_scratch;
 	state->clear();  //initialize it
-	CHECK_ALLOC( state );
 	const char * err = state->read( in );
 	if ( !err )
 		load_state( *state );
-	delete state;
 	return err;
 }
 
 const char * Nes_Emu::save_state( Auto_File_Writer out ) const
 {
-	Nes_State* state = new Nes_State;
-	CHECK_ALLOC( state );
+	Nes_State* state = &s_save_state_scratch;
 	save_state( state );
-	const char * err = state->write( out );
-	delete state;
-	return err;
+	return state->write( out );
 }
 
 void Nes_Emu::write_chr( void const* p, long count, long offset )

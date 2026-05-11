@@ -64,7 +64,13 @@ public:
 	Data_Reader* operator -> () const { return  data; }
 	Data_Reader& operator *  () const { return *data; }
 private:
-	/* mutable */ Data_Reader* data;
+	// `data` is mutable so the destructive copy/assignment (see operator=
+	// below) can clear the source's pointer through a const reference,
+	// which is how this pre-C++11 codebase implements move semantics for
+	// temporaries. Earlier versions laundered the write through a
+	// const_cast<Auto_File_Reader*>, which is undefined behavior if the
+	// source was itself a real const object.
+	mutable Data_Reader* data;
 	const char* path;
 };
 
@@ -82,7 +88,7 @@ public:
 	Data_Writer* operator -> () const { return  data; }
 	Data_Writer& operator *  () const { return *data; }
 private:
-	/* mutable */ Data_Writer* data;
+	mutable Data_Writer* data; // see Auto_File_Reader for why this is mutable
 	const char* path;
 };
 
@@ -90,7 +96,7 @@ inline Auto_File_Reader& Auto_File_Reader::operator = ( Auto_File_Reader const& 
 {
 	data = r.data;
 	path = r.path;
-	((Auto_File_Reader*) &r)->data = 0;
+	r.data = 0; // destructive transfer; `data` is mutable
 	return *this;
 }
 inline Auto_File_Reader::Auto_File_Reader( Auto_File_Reader const& r ) { *this = r; }
@@ -99,7 +105,7 @@ inline Auto_File_Writer& Auto_File_Writer::operator = ( Auto_File_Writer const& 
 {
 	data = r.data;
 	path = r.path;
-	((Auto_File_Writer*) &r)->data = 0;
+	r.data = 0; // destructive transfer; `data` is mutable
 	return *this;
 }
 inline Auto_File_Writer::Auto_File_Writer( Auto_File_Writer const& r ) { *this = r; }

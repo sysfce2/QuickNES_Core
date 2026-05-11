@@ -42,6 +42,7 @@ Blip_Buffer::Blip_Buffer()
 	extra_offset = offset_;
 	extra_reader_accum = reader_accum;
 	memset(extra_buffer, 0, sizeof(extra_buffer));
+	extra_valid = false;
 }
 
 Blip_Buffer::~Blip_Buffer()
@@ -406,15 +407,43 @@ void Blip_Buffer::mix_samples( blip_sample_t const* in, long count )
 
 void Blip_Buffer::SaveAudioBufferState()
 {
+	// Save the live portion of buffer_ (samples_avail + the impulse-response
+	// tail buffer_extra), bounded by the dedicated extra_buffer's capacity.
+	// In practice the post-read-samples residual is only ~18 longs, but
+	// callers may serialize before draining and we want to preserve as much
+	// as the snapshot area can hold.
+	long live = samples_avail() + (long) buffer_extra;
+	if ( live > (long) extra_buffer_size )
+		live = (long) extra_buffer_size;
 	extra_length = length_;
 	extra_offset = offset_;
 	extra_reader_accum = reader_accum;
-	memcpy(extra_buffer, buffer_, sizeof(extra_buffer));
+	if ( live > 0 && buffer_ )
+		memcpy( extra_buffer, buffer_, (size_t) live * sizeof (buf_t_) );
+	// Zero any tail to keep deterministic contents in the snapshot.
+	if ( live < (long) extra_buffer_size )
+		memset( extra_buffer + live, 0,
+		        (size_t) (extra_buffer_size - live) * sizeof (buf_t_) );
+	extra_valid = true;
 }
 void Blip_Buffer::RestoreAudioBufferState()
 {
+	if ( !extra_valid )
+		return; // no Save has happened in this Blip_Buffer's lifetime
 	length_ = extra_length;
 	offset_ = extra_offset;
 	reader_accum = extra_reader_accum;
-	memcpy(buffer_, extra_buffer, sizeof(extra_buffer));
+	if ( buffer_ && buffer_size_ > 0 )
+	{
+		long copy = (long) extra_buffer_size;
+		if ( copy > buffer_size_ )
+			copy = buffer_size_;
+		memcpy( buffer_, extra_buffer, (size_t) copy * sizeof (buf_t_) );
+		// Beyond the snapshot, the buffer may still hold "future" samples
+		// written by the speculative emulation that ran between Save and
+		// Restore. Clear them so the restored read state is exact.
+		if ( copy < buffer_size_ )
+			memset( buffer_ + copy, 0,
+			        (size_t) (buffer_size_ - copy) * sizeof (buf_t_) );
+	}
 }

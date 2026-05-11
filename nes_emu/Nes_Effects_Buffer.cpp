@@ -84,8 +84,12 @@ long Nes_Effects_Buffer::read_samples( blip_sample_t* out, long count )
 
 void Nes_Effects_Buffer::SaveAudioBufferState()
 {
+	Effects_Buffer::SaveAudioBufferState();
+	nonlin.SaveAudioBufferState();
 }
 
 void Nes_Effects_Buffer::RestoreAudioBufferState()
 {
+	Effects_Buffer::RestoreAudioBufferState();
+	nonlin.RestoreAudioBufferState();
 }

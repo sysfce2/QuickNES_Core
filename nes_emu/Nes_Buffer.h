@@ -20,6 +20,7 @@ private:
 	
 	long extra_accum;
 	long extra_prev;
+	bool extra_valid; // see Blip_Buffer.h
 public:
 	Nes_Nonlinearizer();
 	bool enabled;

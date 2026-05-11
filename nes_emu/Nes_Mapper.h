@@ -10,6 +10,7 @@
 #include "Nes_Cpu.h"
 #include "nes_data.h"
 #include "Nes_Core.h"
+#include <assert.h>
 class Blip_Buffer;
 class blip_eq_t;
 class Nes_Core;
@@ -187,6 +188,12 @@ inline void Nes_Mapper::mirror_full()          { mirror_manual( 0, 1, 2, 3 ); }
 
 inline void Nes_Mapper::register_state( void* p, unsigned s )
 {
+	// max_mapper_state_size (currently 512) bounds the per-cart mapper-state
+	// payload written into mapper_state_t. If a new mapper ever registers a
+	// larger struct, save_state silently truncates it; catch that at the
+	// earliest possible point. assert is compiled out under -DNDEBUG, so
+	// shipping builds pay nothing.
+	assert( s <= max_mapper_state_size );
 	state = p;
 	state_size = s;
 }

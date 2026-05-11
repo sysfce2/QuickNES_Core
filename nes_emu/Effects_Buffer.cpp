@@ -73,7 +73,13 @@ Effects_Buffer::Effects_Buffer( bool center_only ) : Multi_Buffer( 2 )
 	
 	reverb_buf = NULL;
 	reverb_pos = 0;
-	
+
+	extra_echo_buf = NULL;
+	extra_reverb_buf = NULL;
+	extra_echo_pos = 0;
+	extra_reverb_pos = 0;
+	extra_valid = false;
+
 	stereo_remain = 0;
 	effect_remain = 0;
 	effects_enabled = false;
@@ -84,6 +90,8 @@ Effects_Buffer::~Effects_Buffer()
 {
 	delete [] echo_buf;
 	delete [] reverb_buf;
+	delete [] extra_echo_buf;
+	delete [] extra_reverb_buf;
 }
 
 const char *Effects_Buffer::set_sample_rate( long rate, int msec )
@@ -98,6 +106,20 @@ const char *Effects_Buffer::set_sample_rate( long rate, int msec )
 	{
 		reverb_buf = new blip_sample_t [reverb_size];
 		CHECK_ALLOC( reverb_buf );
+	}
+
+	if ( !extra_echo_buf )
+	{
+		extra_echo_buf = new blip_sample_t [echo_size];
+		CHECK_ALLOC( extra_echo_buf );
+		memset( extra_echo_buf, 0, echo_size * sizeof *extra_echo_buf );
+	}
+
+	if ( !extra_reverb_buf )
+	{
+		extra_reverb_buf = new blip_sample_t [reverb_size];
+		CHECK_ALLOC( extra_reverb_buf );
+		memset( extra_reverb_buf, 0, reverb_size * sizeof *extra_reverb_buf );
 	}
 	
 	for ( int i = 0; i < buf_count; i++ )
@@ -512,4 +534,33 @@ void Effects_Buffer::mix_enhanced( blip_sample_t* out, long count )
 	r1.end( bufs [4] );
 	l2.end( bufs [5] );
 	r2.end( bufs [6] );
+}
+
+void Effects_Buffer::SaveAudioBufferState()
+{
+	SaveAudioBufferStatePrivate();
+	for ( int i = 0; i < buf_count; i++ )
+		bufs [i].SaveAudioBufferState();
+	extra_echo_pos = echo_pos;
+	extra_reverb_pos = reverb_pos;
+	if ( echo_buf && extra_echo_buf )
+		memcpy( extra_echo_buf, echo_buf, echo_size * sizeof *echo_buf );
+	if ( reverb_buf && extra_reverb_buf )
+		memcpy( extra_reverb_buf, reverb_buf, reverb_size * sizeof *reverb_buf );
+	extra_valid = true;
+}
+
+void Effects_Buffer::RestoreAudioBufferState()
+{
+	if ( !extra_valid )
+		return; // freshly-constructed buffer; nothing snapshotted yet
+	RestoreAudioBufferStatePrivate();
+	for ( int i = 0; i < buf_count; i++ )
+		bufs [i].RestoreAudioBufferState();
+	echo_pos = extra_echo_pos;
+	reverb_pos = extra_reverb_pos;
+	if ( echo_buf && extra_echo_buf )
+		memcpy( echo_buf, extra_echo_buf, echo_size * sizeof *echo_buf );
+	if ( reverb_buf && extra_reverb_buf )
+		memcpy( reverb_buf, extra_reverb_buf, reverb_size * sizeof *reverb_buf );
 }
