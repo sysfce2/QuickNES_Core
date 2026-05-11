@@ -1193,6 +1193,16 @@ imm##op:                                \
 		}
 		// fall through
 	default:
+		// Unimplemented / illegal opcode. The original code intended to halt
+		// the CPU here (see the commented-out result_badop branch below), but
+		// that was disabled because several games rely on opcodes that fall
+		// through to this catchall surviving (with approximate cycle counts).
+		// We therefore skip over the operand bytes using a length table and
+		// continue. error_count_ is bumped so callers can detect that this
+		// path was taken. The cycle count charged is clock_table[opcode],
+		// which is not necessarily correct for every illegal opcode -- the
+		// SH*/SHX/SHY/unstable family are handled explicitly above so this
+		// only fires for the remaining never-seen-in-real-software encodings.
 		// skip over proper number of bytes
 		static unsigned char const row [8] = { 0x95, 0x95, 0x95, 0xd5, 0x95, 0x95, 0xd5, 0xf5 };
 		int len = row [opcode >> 2 & 7] >> (opcode << 1 & 6) & 3;
@@ -1202,7 +1212,7 @@ imm##op:                                \
 		error_count_++;
 		goto loop;
 		
-		//result = result_badop; // TODO: re-enable
+		//result = result_badop; // intentionally unreachable; see comment above
 		goto stop;
 	}
 	

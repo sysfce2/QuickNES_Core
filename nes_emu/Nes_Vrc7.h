@@ -24,7 +24,7 @@ public:
 	void osc_output( int index, Blip_Buffer* );
 	void end_frame( nes_time_t );
 	void save_snapshot(vrc7_snapshot_t*);
-	void load_snapshot(vrc7_snapshot_t &, int dataSize);
+	void load_snapshot(vrc7_snapshot_t const&, int dataSize);
 	void update_last_amp();
 
 	void write_reg( int reg );

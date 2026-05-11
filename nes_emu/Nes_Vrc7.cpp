@@ -10,16 +10,6 @@
 ((uint8_t*)&(xxxx))[3] = (uint8_t)((_temp) >> 0);\
 }
 
-static bool IsLittleEndian()
-{
-	int i = 42;
-	if (((char*)&i)[0] == 42)
-	{
-		return true;
-	}
-	return false;
-}
-
 Nes_Vrc7::Nes_Vrc7()
 {
 	opll = OPLL_new( 3579545 );
@@ -67,37 +57,52 @@ void Nes_Vrc7::output( Blip_Buffer* buf )
 
 void Nes_Vrc7::run_until( nes_time_t end_time )
 {
-	nes_time_t time = last_time;
-
-	while ( time < end_time )
+	if ( end_time <= last_time )
 	{
-		if ( ++count == 36 )
+		last_time = end_time;
+		return;
+	}
+
+	// The OPLL ticks once every 36 CPU cycles. The original implementation
+	// looped one cycle at a time and only did real work when an internal
+	// counter wrapped at 36, which on NTSC means ~29800 wasted iterations
+	// per frame. Compute the tick schedule directly instead.
+	nes_time_t total = end_time - last_time;
+	long total_count = (long) count + (long) total;
+	long num_ticks = total_count / 36;
+
+	// First tick fires when the internal counter increments from 35 to 36.
+	// Starting from `count`, that takes (36 - count) increments, with the
+	// work happening before the time-step at the end of that iteration --
+	// i.e. at last_time + (35 - count). Subsequent ticks are 36 cycles apart.
+	nes_time_t tick_time = last_time + (35 - count);
+
+	for ( long k = 0; k < num_ticks; ++k )
+	{
+		bool run = false;
+		for ( unsigned i = 0; i < osc_count; ++i )
 		{
-			count = 0;
-			bool run = false;
-			for ( unsigned i = 0; i < osc_count; ++i )
+			Vrc7_Osc & osc = oscs [i];
+			if ( osc.output )
 			{
-				Vrc7_Osc & osc = oscs [i];
-				if ( osc.output )
+				if ( ! run )
 				{
-					if ( ! run )
-					{
-						run = true;
-						OPLL_run( ( OPLL * ) opll );
-					}
-					int amp = OPLL_calcCh( ( OPLL * ) opll, i );
-					int delta = amp - osc.last_amp;
-					if ( delta )
-					{
-						osc.last_amp = amp;
-						synth.offset( time, delta, osc.output );
-					}
+					run = true;
+					OPLL_run( ( OPLL * ) opll );
+				}
+				int amp = OPLL_calcCh( ( OPLL * ) opll, i );
+				int delta = amp - osc.last_amp;
+				if ( delta )
+				{
+					osc.last_amp = amp;
+					synth.offset( tick_time, delta, osc.output );
 				}
 			}
 		}
-		++time;
+		tick_time += 36;
 	}
 
+	count = (int) (total_count % 36);
 	last_time = end_time;
 }
 
@@ -140,15 +145,14 @@ void Nes_Vrc7::save_snapshot( vrc7_snapshot_t* out )
 	}
 	out->count = count;
 	out->internal_opl_state_size = sizeof(OPLL_STATE);
-	if (!IsLittleEndian())
-	{
-		BYTESWAP(out->internal_opl_state_size);
-	}
+#ifdef MSB_FIRST
+	BYTESWAP(out->internal_opl_state_size);
+#endif
 	OPLL_serialize((OPLL*)opll, &(out->internal_opl_state));
 	OPLL_state_byteswap(&(out->internal_opl_state));
 }
 
-void Nes_Vrc7::load_snapshot( vrc7_snapshot_t & in, int dataSize )
+void Nes_Vrc7::load_snapshot( vrc7_snapshot_t const& in, int dataSize )
 {
 	reset();
 	write_reg( in.latch );
@@ -174,14 +178,20 @@ void Nes_Vrc7::load_snapshot( vrc7_snapshot_t & in, int dataSize )
 			OPLL_writeReg( ( OPLL * ) opll, 0x10 + i * 0x10 + j, oscs [j].regs [i] );
 		}
 	}
-	if (!IsLittleEndian())
+
+	// Operate on a local copy so the caller's snapshot stays untouched. The
+	// previous in-place byte-swap-and-deserialize left the caller's struct
+	// in host-endian afterwards, which silently broke a second restore from
+	// the same buffer on a big-endian host.
+	int state_size = in.internal_opl_state_size;
+#ifdef MSB_FIRST
+	BYTESWAP(state_size);
+#endif
+	if (state_size == sizeof(OPLL_STATE))
 	{
-		BYTESWAP(in.internal_opl_state_size);
-	}
-	if (in.internal_opl_state_size == sizeof(OPLL_STATE))
-	{
-		OPLL_state_byteswap(&(in.internal_opl_state));
-		OPLL_deserialize((OPLL*)opll, &(in.internal_opl_state));
+		OPLL_STATE local_state = in.internal_opl_state;
+		OPLL_state_byteswap(&local_state);
+		OPLL_deserialize((OPLL*)opll, &local_state);
 	}
 	update_last_amp();
 }

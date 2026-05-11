@@ -23,7 +23,15 @@
 #define CORE_VERSION "1.0-WIP"
 
 #define NES_4_3 (4.0 / 3.0)
-#define NES_PAR (width * (8.0 / 7.0) / height)
+
+// Pixel aspect ratio. NES pixels are 8:7 horizontally relative to the visible
+// raster. As a macro this used to capture `width` and `height` from caller
+// scope, which silently bound to any same-named local variable; an inline
+// function makes the dependency explicit.
+static inline float nes_par(unsigned width, unsigned height)
+{
+   return (float) width * (8.0f / 7.0f) / (float) height;
+}
 
 static Nes_Emu *emu;
 
@@ -580,7 +588,7 @@ void retro_get_system_info(struct retro_system_info *info)
 
 float get_aspect_ratio(unsigned width, unsigned height)
 {
-   return (aspect_ratio_par ? NES_PAR : NES_4_3);
+   return aspect_ratio_par ? nes_par(width, height) : NES_4_3;
 }
 
 void retro_get_system_av_info(struct retro_system_av_info *info)
@@ -687,12 +695,31 @@ static void set_current_palette(void)
    last_palette_index = palette_index;
 }
 
+// Cached audio equalizer state. set_equalizer() recomputes the impulse
+// response on every Blip_Synth in the APU and every mapper sound chip, so we
+// avoid calling it unless the user's choice or the active output buffer
+// actually changed. -1 is a sentinel meaning "never applied yet".
+enum {
+   QUICKNES_EQ_NES = 0,
+   QUICKNES_EQ_FAMICOM,
+   QUICKNES_EQ_TV,
+   QUICKNES_EQ_FLAT,
+   QUICKNES_EQ_CRISP,
+   QUICKNES_EQ_TINNY
+};
+static int cached_eq_choice = -1;
+
 static void update_audio_mode(void)
 {
+	bool buffer_changed = false;
+
 	if (use_silent_buffer)
 	{
-		emu->set_sample_rate(44100, &silent_buffer);
-		current_buffer = &silent_buffer;
+		if (current_buffer != &silent_buffer)
+		{
+			emu->set_sample_rate(44100, &silent_buffer);
+			current_buffer = &silent_buffer;
+		}
 		return;
 	}
 	struct retro_variable var = { 0 };
@@ -706,6 +733,7 @@ static void update_audio_mode(void)
 			{
 				emu->set_sample_rate(44100, &nes_buffer);
 				current_buffer = &nes_buffer;
+				buffer_changed = true;
 			}
 		}
 		else if (0 == strcmp(var.value, "stereo panning"))
@@ -714,6 +742,7 @@ static void update_audio_mode(void)
 			{
 				emu->set_sample_rate(44100, &effects_buffer);
 				current_buffer = &effects_buffer;
+				buffer_changed = true;
 			}
 
 			Effects_Buffer::config_t c;
@@ -733,6 +762,7 @@ static void update_audio_mode(void)
 			{
 				emu->set_sample_rate(44100, &mono_buffer);
 				current_buffer = &mono_buffer;
+				buffer_changed = true;
 			}
 		}
 	}
@@ -743,35 +773,39 @@ static void update_audio_mode(void)
 		{
 			emu->set_sample_rate(44100, &nes_buffer);
 			current_buffer = &nes_buffer;
+			buffer_changed = true;
 		}
 	}
 
 	var.key   = "quicknes_audio_eq";
    var.value = NULL;
 
+	int new_eq_choice = QUICKNES_EQ_NES;
 	if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
 	{
-		if (0 == strcmp(var.value, "default"))
-			emu->set_equalizer(Nes_Emu::nes_eq);
-		else if (0 == strcmp(var.value, "nes"))
-			emu->set_equalizer(Nes_Emu::nes_eq);
-		else if (0 == strcmp(var.value, "famicom"))
-			emu->set_equalizer(Nes_Emu::famicom_eq);
-		else if (0 == strcmp(var.value, "tv"))
-			emu->set_equalizer(Nes_Emu::tv_eq);
-		else if (0 == strcmp(var.value, "flat"))
-			emu->set_equalizer(Nes_Emu::flat_eq);
-		else if (0 == strcmp(var.value, "crisp"))
-			emu->set_equalizer(Nes_Emu::crisp_eq);
-		else if (0 == strcmp(var.value, "tinny"))
-			emu->set_equalizer(Nes_Emu::tinny_eq);
-		else
-			emu->set_equalizer(Nes_Emu::nes_eq);
+		if      (0 == strcmp(var.value, "famicom")) new_eq_choice = QUICKNES_EQ_FAMICOM;
+		else if (0 == strcmp(var.value, "tv"))      new_eq_choice = QUICKNES_EQ_TV;
+		else if (0 == strcmp(var.value, "flat"))    new_eq_choice = QUICKNES_EQ_FLAT;
+		else if (0 == strcmp(var.value, "crisp"))   new_eq_choice = QUICKNES_EQ_CRISP;
+		else if (0 == strcmp(var.value, "tinny"))   new_eq_choice = QUICKNES_EQ_TINNY;
+		// "default", "nes", or any unrecognized value falls through to NES.
 	}
-	else
+
+	// set_sample_rate() above re-initialises the underlying Blip_Buffer's
+	// impulse response, so any buffer change forces a re-apply regardless of
+	// whether the user's EQ choice is the same string as last time.
+	if (buffer_changed || new_eq_choice != cached_eq_choice)
 	{
-		//if the environment callback failed (won't happen), just set the default NES equalizer
-		emu->set_equalizer(Nes_Emu::nes_eq);
+		switch (new_eq_choice)
+		{
+			case QUICKNES_EQ_FAMICOM: emu->set_equalizer(Nes_Emu::famicom_eq); break;
+			case QUICKNES_EQ_TV:      emu->set_equalizer(Nes_Emu::tv_eq);      break;
+			case QUICKNES_EQ_FLAT:    emu->set_equalizer(Nes_Emu::flat_eq);    break;
+			case QUICKNES_EQ_CRISP:   emu->set_equalizer(Nes_Emu::crisp_eq);   break;
+			case QUICKNES_EQ_TINNY:   emu->set_equalizer(Nes_Emu::tinny_eq);   break;
+			default:                  emu->set_equalizer(Nes_Emu::nes_eq);     break;
+		}
+		cached_eq_choice = new_eq_choice;
 	}
 }
 

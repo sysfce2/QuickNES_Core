@@ -42,10 +42,6 @@ void OPLL_serialize(const OPLL * opll, OPLL_STATE* state)
 }
 
 
-#define SET(xxxx,yyyy) { if ((xxxx) != (yyyy)) {\
-(xxxx) = (yyyy);\
-}
-
 void OPLL_deserialize(OPLL * opll, const OPLL_STATE* state)
 {
 	int i;
@@ -71,12 +67,11 @@ void OPLL_deserialize(OPLL * opll, const OPLL_STATE* state)
 
 static bool IsLittleEndian()
 {
-	int i = 42;
-	if (((char*)&i)[0] == 42)
-	{
-		return true;
-	}
+#ifdef MSB_FIRST
 	return false;
+#else
+	return true;
+#endif
 }
 
 void OPLL_state_byteswap(OPLL_STATE *state)
