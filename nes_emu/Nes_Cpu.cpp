@@ -1,15 +1,6 @@
 
 // Nes_Emu 0.7.0. http://www.slack.net/~ant/nes-emu/
 
-// TODO: remove
-#if !defined (NDEBUG) && 0
-	#pragma peephole on
-	#pragma global_optimizer on
-	#pragma optimization_level 4
-	#pragma scheduling 604
-	#undef BLARGG_ENABLE_OPTIMIZER
-#endif
-
 #include "Nes_Cpu.h"
 
 #include <string.h>
@@ -72,8 +63,6 @@ void Nes_Cpu::map_code( nes_addr_t start, unsigned size, const void* data )
 
 // Note: 'addr' is evaulated more than once in the following macros, so it
 // must not contain side-effects.
-
-//static void log_read( int opcode ) { LOG_FREQ( "read", 256, opcode ); }
 
 #define READ_LIKELY_PPU( addr ) (NES_CPU_READ_PPU( this, (addr), (clock_count) ))
 #define READ( addr )            (NES_CPU_READ( this, (addr), (clock_count) ))
@@ -203,9 +192,6 @@ loop:
 
 #define GET_OPERAND( addr )   page [addr]
 #define GET_OPERAND16( addr ) GET_LE16( &page [addr] )
-
-//#define GET_OPERAND( addr )   READ_PROG( addr )
-//#define GET_OPERAND16( addr ) READ_PROG16( addr )
 
 #define ADD_PAGE        (pc++, data += 0x100 * GET_OPERAND( pc ));
 #define GET_ADDR()      GET_OPERAND16( pc )
@@ -393,33 +379,6 @@ imm##op:                                \
 		nz = data;
 		goto loop;
 	
-#if 0
-	case 0xA1: // LDA (ind,X)
-		IND_X
-		goto lda_ptr;
-	
-	case 0xB1: // LDA (ind),Y
-		IND_Y(true,true)
-		goto lda_ptr;
-	
-	case 0xB9: // LDA abs,Y
-		data += y;
-		goto lda_ind_common;
-	
-	case 0xBD: // LDA abs,X
-		data += x;
-	lda_ind_common: {
-		HANDLE_PAGE_CROSSING( data );
-		int temp = data;
-		ADD_PAGE
-		if ( temp & 0x100 )
-			READ( data - 0x100 );
-	}
-	lda_ptr:
-		a = nz = READ( data );
-		pc++;
-		goto loop;
-#else
 	// optimization of most commonly used memory read instructions
 	
 	case 0xB9:// LDA abs,Y
@@ -466,8 +425,6 @@ imm##op:                                \
 		pc++;
 		goto loop;
 	
-#endif
-
 // Branch
 
 	case 0x50: // BVC
